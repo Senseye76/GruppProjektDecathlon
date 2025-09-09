@@ -10,9 +10,10 @@ import java.awt.event.ActionListener;
 import java.awt.*;
 
 import com.example.decathlon.deca.*;
+import com.example.decathlon.excel.ExcelPrinter;
 
 
-public class MainGUI {
+public class MainGUI extends JFrame {
 
     private JTextField nameField;
     private JTextField resultField;
@@ -28,7 +29,7 @@ public class MainGUI {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(500, 400);
 
-        JPanel panel = new JPanel(new GridLayout(6, 1));
+        JPanel panel = new JPanel(new GridLayout(0, 1));
 
         // Input for competitor's name
         nameField = new JTextField(20);
@@ -61,8 +62,16 @@ public class MainGUI {
         JScrollPane scrollPane = new JScrollPane(outputArea);
         panel.add(scrollPane);
 
+
+        JButton exportButton = new JButton("Export to Excel (.xlsx)");
+        exportButton.addActionListener(e -> onExportExcel());
+        panel.add(exportButton);
+
         frame.add(panel);
         frame.setVisible(true);
+
+
+
     }
 
     private class CalculateButtonListener implements ActionListener {
@@ -128,4 +137,67 @@ public class MainGUI {
             }
         }
     }
+    private final java.util.LinkedHashMap<String, java.util.LinkedHashMap<String, Integer>> scoresByName
+            = new java.util.LinkedHashMap<>();
+
+    private static final java.util.List<String> EVENT_ORDER = java.util.List.of(
+            "100m","Long Jump","Shot Put","400m"
+    );
+
+    private void addCompetitor(String name) {
+        scoresByName.putIfAbsent(name, new java.util.LinkedHashMap<>());
+    }
+
+    private void saveScore(String name, String eventId, double raw) {
+        addCompetitor(name);
+        int points = calculatePoints(eventId, raw); // anropa din befintliga logik här
+        scoresByName.get(name).put(eventId, points);
+    }
+
+    private int calculatePoints(String eventId, double raw) {
+        return 0;
+    }
+
+    private void onExportExcel() {
+        try {
+            // Bygg matris: första raden = header
+            int rows = scoresByName.size() + 1;
+            int cols = EVENT_ORDER.size() + 2; // Competitor + events + Total
+            Object[][] matrix = new Object[rows][cols];
+
+            // Header
+            matrix[0][0] = "Competitor";
+            for (int i = 0; i < EVENT_ORDER.size(); i++) matrix[0][i+1] = EVENT_ORDER.get(i);
+            matrix[0][cols - 1] = "Total";
+
+            // Data
+            int r = 1;
+            for (var entry : scoresByName.entrySet()) {
+                String name = entry.getKey();
+                var perEvent = entry.getValue();
+                matrix[r][0] = name;
+                int sum = 0;
+                for (int i = 0; i < EVENT_ORDER.size(); i++) {
+                    Integer p = perEvent.get(EVENT_ORDER.get(i));
+                    matrix[r][i+1] = (p == null ? "" : p);
+                    if (p != null) sum += p;
+                }
+                matrix[r][cols - 1] = sum;
+                r++;
+            }
+
+
+            ExcelPrinter xp = new ExcelPrinter("decathlon");
+            xp.add(matrix, "Results");
+
+
+
+            javax.swing.JOptionPane.showMessageDialog(this, "Export done.");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            javax.swing.JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage(),
+                    "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
 }
