@@ -2,23 +2,29 @@ package com.example.decathlon.gui;
 
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 
-
 import java.awt.*;
+import java.io.IOException;
 
+import com.example.decathlon.common.Competitor;
 import com.example.decathlon.deca.*;
 import com.example.decathlon.excel.ExcelPrinter;
 
+import static javax.swing.JOptionPane.showMessageDialog;
 
-public class MainGUI extends JFrame {
+
+public class MainGUI {
 
     private JTextField nameField;
     private JTextField resultField;
     private JComboBox<String> disciplineBox;
     private JTextArea outputArea;
+
+    private Competitor competitor;
 
     public static void main(String[] args) {
         new MainGUI().createAndShowGUI();
@@ -29,7 +35,7 @@ public class MainGUI extends JFrame {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(500, 400);
 
-        JPanel panel = new JPanel(new GridLayout(0, 1));
+        JPanel panel = new JPanel(new GridLayout(6, 1));
 
         // Input for competitor's name
         nameField = new JTextField(20);
@@ -42,6 +48,7 @@ public class MainGUI extends JFrame {
                 "Long Jump", "High Jump", "Pole Vault",
                 "Discus Throw", "Javelin Throw", "Shot Put"
         };
+
         disciplineBox = new JComboBox<>(disciplines);
         panel.add(new JLabel("Select Discipline:"));
         panel.add(disciplineBox);
@@ -56,22 +63,18 @@ public class MainGUI extends JFrame {
         calculateButton.addActionListener(new CalculateButtonListener());
         panel.add(calculateButton);
 
+        JButton exportButton = new JButton("Export to Excel");
+        exportButton.addActionListener(new ExportButtonListener());  // New export button listener
+        panel.add(exportButton);  // Add export button to the panel
+
         // Output area
         outputArea = new JTextArea(5, 40);
         outputArea.setEditable(false);
         JScrollPane scrollPane = new JScrollPane(outputArea);
         panel.add(scrollPane);
 
-
-        JButton exportButton = new JButton("Export to Excel (.xlsx)");
-        exportButton.addActionListener(e -> onExportExcel());
-        panel.add(exportButton);
-
         frame.add(panel);
         frame.setVisible(true);
-
-
-
     }
 
     private class CalculateButtonListener implements ActionListener {
@@ -80,6 +83,10 @@ public class MainGUI extends JFrame {
             String name = nameField.getText();
             String discipline = (String) disciplineBox.getSelectedItem();
             String resultText = resultField.getText();
+            competitor = new Competitor(name);
+            if (competitor == null) {
+                competitor = new Competitor(name);  // Create a new competitor
+            }
 
             try {
                 double result = Double.parseDouble(resultText);
@@ -128,76 +135,50 @@ public class MainGUI extends JFrame {
                         break;
                 }
 
+                // Update the competitor's score for the selected discipline
+                competitor.setScore(discipline, score);
+
                 outputArea.append("Competitor: " + name + "\n");
                 outputArea.append("Discipline: " + discipline + "\n");
                 outputArea.append("Result: " + result + "\n");
                 outputArea.append("Score: " + score + "\n\n");
+
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(null, "Please enter a valid number for the result.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
-    private final java.util.LinkedHashMap<String, java.util.LinkedHashMap<String, Integer>> scoresByName
-            = new java.util.LinkedHashMap<>();
 
-    private static final java.util.List<String> EVENT_ORDER = java.util.List.of(
-            "100m","Long Jump","Shot Put","400m"
-    );
-
-    private void addCompetitor(String name) {
-        scoresByName.putIfAbsent(name, new java.util.LinkedHashMap<>());
-    }
-
-    private void saveScore(String name, String eventId, double raw) {
-        addCompetitor(name);
-        int points = calculatePoints(eventId, raw); // anropa din befintliga logik här
-        scoresByName.get(name).put(eventId, points);
-    }
-
-    private int calculatePoints(String eventId, double raw) {
-        return 0;
-    }
-
-    private void onExportExcel() {
-        try {
-            // Bygg matris: första raden = header
-            int rows = scoresByName.size() + 1;
-            int cols = EVENT_ORDER.size() + 2; // Competitor + events + Total
-            Object[][] matrix = new Object[rows][cols];
-
-            // Header
-            matrix[0][0] = "Competitor";
-            for (int i = 0; i < EVENT_ORDER.size(); i++) matrix[0][i+1] = EVENT_ORDER.get(i);
-            matrix[0][cols - 1] = "Total";
-
-            // Data
-            int r = 1;
-            for (var entry : scoresByName.entrySet()) {
-                String name = entry.getKey();
-                var perEvent = entry.getValue();
-                matrix[r][0] = name;
-                int sum = 0;
-                for (int i = 0; i < EVENT_ORDER.size(); i++) {
-                    Integer p = perEvent.get(EVENT_ORDER.get(i));
-                    matrix[r][i+1] = (p == null ? "" : p);
-                    if (p != null) sum += p;
-                }
-                matrix[r][cols - 1] = sum;
-                r++;
+    private class ExportButtonListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            try {
+                exportToExcel();
+                showMessageDialog(null, "Results exported successfully!", "Export Successful", JOptionPane.INFORMATION_MESSAGE);
+            } catch (IOException ex) {
+                showMessageDialog(null, "Failed to export results to Excel.", "Export Error", JOptionPane.ERROR_MESSAGE);
             }
-
-
-            ExcelPrinter xp = new ExcelPrinter("decathlon");
-            xp.add(matrix, "Results");
-
-
-
-            javax.swing.JOptionPane.showMessageDialog(this, "Export done.");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            javax.swing.JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage(),
-                    "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void exportToExcel() throws IOException {
+        String[][] data = new String[1][];
+        int i = 0;
+
+        Object[] rowData = competitor.getRowData(); // Get the competitor's row data
+
+        // Ensure the array size matches the number of columns in rowData
+        data[i] = new String[rowData.length];
+
+        // Safely copy rowData to data array
+        for (int j = 0; j < rowData.length; j++) {
+            data[i][j] = (rowData[j] != null) ? rowData[j].toString() : "";  // Handle null values
+        }
+
+
+        ExcelPrinter printer = new ExcelPrinter("TrackAndFieldResults");
+        printer.add(data, "Results");
+        printer.write();
     }
 
 }
