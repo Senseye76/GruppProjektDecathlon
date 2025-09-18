@@ -138,10 +138,17 @@ public class MainGUI {
                 // Update the competitor's score for the selected discipline
                 competitor.setScore(discipline, score);
 
-                outputArea.append("Competitor: " + name + "\n");
-                outputArea.append("Discipline: " + discipline + "\n");
-                outputArea.append("Result: " + result + "\n");
-                outputArea.append("Score: " + score + "\n\n");
+                if (score > 0) {
+                    outputArea.append("Competitor: " + name + "\n");
+                    outputArea.append("Discipline: " + discipline + "\n");
+                    outputArea.append("Result: " + result + "\n");
+                    outputArea.append("Score: " + score + "\n\n");
+                    nameField.setText("");
+                    resultField.setText("");
+                    disciplineBox.setSelectedIndex(0);
+                } else {
+                    resultField.setText("");
+                }
 
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(null, "Please enter a valid number for the result.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
