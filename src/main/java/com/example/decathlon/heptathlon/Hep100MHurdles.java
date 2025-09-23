@@ -8,7 +8,7 @@ public class Hep100MHurdles {
 	private int score;
 	private double A = 9.23076;
 	private double B = 26.7;
-	private double C = 18.35;
+	private double C = 1.835;
 	boolean active = true;
 	CalcTrackAndField calc = new CalcTrackAndField();
 	InputResult inputResult = new InputResult();
