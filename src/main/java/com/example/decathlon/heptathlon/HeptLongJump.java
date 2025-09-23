@@ -6,7 +6,7 @@ import com.example.decathlon.common.InputResult;
 public class HeptLongJump {
 
 	private int score;
-	private double A = 0.1888807;
+	private double A = 0.188807;
 	private double B = 210;
 	private double C = 1.41;
 	boolean active = true;
