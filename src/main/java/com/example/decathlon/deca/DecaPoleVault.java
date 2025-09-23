@@ -3,6 +3,8 @@ package com.example.decathlon.deca;
 import com.example.decathlon.common.CalcTrackAndField;
 import com.example.decathlon.common.InputResult;
 
+import javax.swing.*;
+
 public class DecaPoleVault {
 
 	private int score;
@@ -20,15 +22,23 @@ public class DecaPoleVault {
 		while (active) {
 
 			try {
+                String message = "";
 				// Acceptable values.
 				if (distance < 2) {
-					System.out.println("Value too low");
-					distance = inputResult.enterResult();
+                    message = "Value too low";
+                    JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                    active =false;
+                    score = 0;
+//					System.out.println("Value too low");
+//					distance = inputResult.enterResult();
 
 				} else if (distance > 1000) {
-
-					System.out.println("Value too high");
-					distance = inputResult.enterResult();
+                    message = "Value too high";
+                    JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                    active = false;
+                    score = 0;
+//					System.out.println("Value too high");
+//					distance = inputResult.enterResult();
 
 				} else {
 

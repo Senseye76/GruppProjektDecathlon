@@ -12,9 +12,8 @@ public class Deca1500M {
 	private double B = 480;
 	private double C = 1.85;
 	boolean active = true;
-    private String message = "";
 
-	CalcTrackAndField calc = new CalcTrackAndField();
+    CalcTrackAndField calc = new CalcTrackAndField();
 	InputResult inputResult = new InputResult();
 
 	// Calculate the score based on time. All running events.
@@ -23,8 +22,9 @@ public class Deca1500M {
 		while (active) {
 
 			try {
+                String message = "";
 				// Acceptable values.
-				if (runningTime < 2) {
+                if (runningTime < 2) {
 					message = "Value too low";
                     JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
                     active =false;

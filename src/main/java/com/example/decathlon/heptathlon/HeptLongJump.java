@@ -3,6 +3,8 @@ package com.example.decathlon.heptathlon;
 import com.example.decathlon.common.CalcTrackAndField;
 import com.example.decathlon.common.InputResult;
 
+import javax.swing.*;
+
 public class HeptLongJump {
 
 	private int score;
@@ -19,14 +21,23 @@ public class HeptLongJump {
 		while (active) {
 
 			try {
+                String message = "";
 				// Acceptable values.
 				if (distance < 0) {
-					System.out.println("Value too low");
-					distance = inputResult.enterResult();
+                    message = "Value too low";
+                    JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                    active =false;
+                    score = 0;
+//					System.out.println("Value too low");
+//					distance = inputResult.enterResult();
 				} else if (distance > 400) {
+                    message = "Value too high";
+                    JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                    active = false;
+                    score = 0;
 
-					System.out.println("Value too high");
-					distance = inputResult.enterResult();
+//					System.out.println("Value too high");
+//					distance = inputResult.enterResult();
 
 				} else {
 

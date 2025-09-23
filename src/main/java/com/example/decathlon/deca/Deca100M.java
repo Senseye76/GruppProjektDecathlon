@@ -3,6 +3,8 @@ package com.example.decathlon.deca;
 import com.example.decathlon.common.CalcTrackAndField;
 import com.example.decathlon.common.InputResult;
 
+import javax.swing.*;
+
 public class Deca100M {
 
 	private int score;
@@ -19,13 +21,22 @@ public class Deca100M {
 		while (active) {
 
 			try {
+                String message = "";
 				// Acceptable values.
 				if (runningTime < 5) {
-					System.out.println("Value too low");
-					runningTime = inputResult.enterResult();
+                    message = "Value too low";
+                    JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                    active =false;
+                    score = 0;
+//					System.out.println("Value too low");
+//					runningTime = inputResult.enterResult();
 				} else if (runningTime > 17.8) {
-					System.out.println("Value too high");
-					runningTime = inputResult.enterResult();
+                    message = "Value too high";
+                    JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                    active = false;
+                    score = 0;
+//					System.out.println("Value too high");
+//					runningTime = inputResult.enterResult();
 				} else {
 
 					score = calc.calculateTrack(A, B, C, runningTime);
