@@ -138,7 +138,7 @@ public class MainGUI {
                 // Update the competitor's score for the selected discipline
                 competitor.setScore(discipline, score);
 
-                if (score > 0) {
+                if (score >= 0) { // score will be -1 if result was too low or too high
                     outputArea.append("Competitor: " + name + "\n");
                     outputArea.append("Discipline: " + discipline + "\n");
                     outputArea.append("Result: " + result + "\n");
