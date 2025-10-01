@@ -4,13 +4,12 @@ public class Competitor {
     private String name;
     private int[] scores = new int[17];  // Store scores for 17 event
 
+
     public Competitor(String name) {
         this.name = name;
     }
 
-    public String getName() {
-        return name;
-    }
+    public String getName() {return name;}
 
     public void setScore(String discipline, int score) {
         switch (discipline) {

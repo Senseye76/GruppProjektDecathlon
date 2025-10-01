@@ -24,7 +24,7 @@ import com.example.decathlon.heptathlon.HeptShotPut;
 public class SelectDiscipline {
 
 	int disciplineSelected;
-	InputResult inputResult = new InputResult();
+	InputResult inputResult = new InputResult(0);
 	Scanner sc = new Scanner(System.in);
 	Deca100M deca100M = new Deca100M();
 	Deca400M deca400M = new Deca400M();
@@ -44,7 +44,13 @@ public class SelectDiscipline {
 	HeptLongJump hepLongJump = new HeptLongJump();
 	HeptShotPut hepShotPut = new HeptShotPut();
 	HeptJavelinThrow hepJavelinThrow = new HeptJavelinThrow();
-	
+    private String curDiscipline;
+
+    public SelectDiscipline(String discipline) {
+        this.curDiscipline = discipline;
+    }
+    public String getCurDiscipline() {return curDiscipline;}
+
 	//Receive input	of selection of discipline.
 
 	public void inputSelection() {

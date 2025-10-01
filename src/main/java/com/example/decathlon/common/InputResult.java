@@ -5,6 +5,12 @@ import java.util.Scanner;
 public class InputResult {
 	double inputResult = 0;
 
+    public InputResult(double result){
+        this.inputResult=result;
+    }
+
+    public double getInputResult(){return inputResult;}
+
 	public double enterResult() {
 		Scanner sc = new Scanner(System.in);
 		boolean active = true;
