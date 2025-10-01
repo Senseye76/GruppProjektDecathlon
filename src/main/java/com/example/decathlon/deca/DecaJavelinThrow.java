@@ -27,14 +27,14 @@ public class DecaJavelinThrow {
                     message = "Value too low";
                     JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
                     active =false;
-                    score = 0;
+                    score = -1; //-1 indicates that no results should be displayed in the outputbox
 //					System.out.println("Value too low");
 //					distance = inputResult.enterResult();
 				} else if (distance > 110) {
                     message = "Value too high";
                     JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
                     active = false;
-                    score = 0;
+                    score = -1; //-1 indicates that no results should be displayed in the outputbox
 //					System.out.println("Value too high");
 //					distance = inputResult.enterResult();
 

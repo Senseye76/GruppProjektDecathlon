@@ -28,7 +28,7 @@ public class DecaPoleVault {
                     message = "Value too low";
                     JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
                     active =false;
-                    score = 0;
+                    score = -1; //-1 indicates that no results should be displayed in the outputbox
 //					System.out.println("Value too low");
 //					distance = inputResult.enterResult();
 
@@ -36,7 +36,7 @@ public class DecaPoleVault {
                     message = "Value too high";
                     JOptionPane.showMessageDialog(null, message, "Invalid Input", JOptionPane.ERROR_MESSAGE);
                     active = false;
-                    score = 0;
+                    score = -1; //-1 indicates that no results should be displayed in the outputbox
 //					System.out.println("Value too high");
 //					distance = inputResult.enterResult();
 
