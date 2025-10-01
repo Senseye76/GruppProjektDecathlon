@@ -13,7 +13,7 @@ public class DecaLongJump {
 	private double C = 1.4;
 	boolean active = true;
 	CalcTrackAndField calc = new CalcTrackAndField();
-	InputResult inputResult = new InputResult();
+	InputResult inputResult = new InputResult(0);
 
 	// Calculate the score based on distance and height. Measured in centimetres.
 	public int calculateResult(double distance) {

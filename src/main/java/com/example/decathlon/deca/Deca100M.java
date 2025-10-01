@@ -13,7 +13,7 @@ public class Deca100M {
 	private double C = 1.81;
 	boolean active = true;
 	CalcTrackAndField calc = new CalcTrackAndField();
-	InputResult inputResult = new InputResult();
+	InputResult inputResult = new InputResult(0);
 
 	// Calculate the score based on time. All running events.
 	public int calculateResult(double runningTime) {
