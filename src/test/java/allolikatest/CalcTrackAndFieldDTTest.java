@@ -42,7 +42,7 @@ public class CalcTrackAndFieldDTTest {
     //        int points = calc.calculateTrack(4.99087,42.5,1.81 ,20 );
     //        assertEquals(1398, points);
     //}
-    //    @Test
+    //    @Test.
     //    void testHep800mValidPoint() {
     //        int points = calc.calculateTrack(0.11193,254,1.88 ,103 );
     //        assertEquals(1397, points);
