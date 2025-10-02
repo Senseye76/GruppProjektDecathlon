@@ -1,4 +1,4 @@
-package allolikatest;
+package testing;
 import com.example.decathlon.common.CalcTrackAndField;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
