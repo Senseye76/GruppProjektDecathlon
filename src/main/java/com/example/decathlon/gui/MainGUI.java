@@ -1,21 +1,19 @@
 package com.example.decathlon.gui;
 
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-
-
-import java.awt.*;
+import java.util.*;
 import java.io.IOException;
 
 import com.example.decathlon.common.Competitor;
 import com.example.decathlon.deca.*;
 import com.example.decathlon.excel.ExcelPrinter;
+import com.example.decathlon.heptathlon.*;
 
 import static javax.swing.JOptionPane.showMessageDialog;
-
 
 public class MainGUI {
 
@@ -24,136 +22,328 @@ public class MainGUI {
     private JComboBox<String> disciplineBox;
     private JTextArea outputArea;
 
-    private Competitor competitor;
+    private JRadioButton decathlonRadio;
+    private JRadioButton heptathlonRadio;
+
+    private JButton addCompetitorButton;
+    private JButton calculateButton;
+    private JButton exportButton;
+
+    private JTable snapshotTable;
+    private DefaultTableModel tableModel;
+
+    private final Map<String, Competitor> competitors = new LinkedHashMap<>();
+
+    private static final String[] DECA_DISCIPLINES = {
+            "100m", "Long Jump", "Shot Put", "High Jump", "400m",
+            "110m Hurdles", "Discus Throw", "Pole Vault", "Javelin Throw", "1500m"
+    };
+
+    private static final String[] HEPTA_DISCIPLINES = {
+            // Classic women heptathlon order
+            "100m Hurdles", "Hep High Jump", "Hep Shot Put", "200m",
+            "Hep Long Jump", "Hep Javelin Throw", "800m"
+    };
+
+    // Keep currently active set
+    private String[] activeDisciplines = DECA_DISCIPLINES;
 
     public static void main(String[] args) {
-        new MainGUI().createAndShowGUI();
+        SwingUtilities.invokeLater(() -> new MainGUI().createAndShowGUI());
     }
 
     private void createAndShowGUI() {
         JFrame frame = new JFrame("Track and Field Calculator");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(500, 400);
+        frame.setLayout(new BorderLayout());
+        frame.setSize(960, 640);
 
-        JPanel panel = new JPanel(new GridLayout(6, 1));
+        // ==== TOP: Controls panel ============================================================
+        JPanel controls = new JPanel();
+        controls.setLayout(new GridBagLayout());
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(4, 6, 4, 6);
+        gc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Input for competitor's name
-        nameField = new JTextField(20);
-        panel.add(new JLabel("Enter Competitor's Name:"));
-        panel.add(nameField);
+        // First row panel (mode + name + add competitor)
+        JPanel firstRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
 
-        // Dropdown for selecting discipline
-        String[] disciplines = {
-                "100m", "400m", "1500m", "110m Hurdles",
-                "Long Jump", "High Jump", "Pole Vault",
-                "Discus Throw", "Javelin Throw", "Shot Put"
+        // Mode toggle (Decathlon/Heptathlon)
+        decathlonRadio = new JRadioButton("Decathlon", true);
+        heptathlonRadio = new JRadioButton("Heptathlon");
+        ButtonGroup group = new ButtonGroup();
+        group.add(decathlonRadio);
+        group.add(heptathlonRadio);
+
+        ActionListener modeListener = e -> {
+            if (decathlonRadio.isSelected()) {
+                activeDisciplines = DECA_DISCIPLINES;
+            } else {
+                activeDisciplines = HEPTA_DISCIPLINES;
+            }
+            refreshDisciplineBox();
+            rebuildSnapshotTableColumns();
+            refreshSnapshotTableData();
         };
+        decathlonRadio.addActionListener(modeListener);
+        heptathlonRadio.addActionListener(modeListener);
 
-        disciplineBox = new JComboBox<>(disciplines);
-        panel.add(new JLabel("Select Discipline:"));
-        panel.add(disciplineBox);
+        JPanel modePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        modePanel.add(new JLabel("Mode:"));
+        modePanel.add(decathlonRadio);
+        modePanel.add(heptathlonRadio);
 
-        // Input for result
-        resultField = new JTextField(10);
-        panel.add(new JLabel("Enter Result:"));
-        panel.add(resultField);
+        nameField = new JTextField(16);
+        JPanel namePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        namePanel.add(new JLabel("Name:"));
+        namePanel.add(nameField);
 
-        // Button to calculate and display result
-        JButton calculateButton = new JButton("Calculate Score");
+        addCompetitorButton = new JButton("Add Competitor");
+        addCompetitorButton.addActionListener(e -> addCompetitor());
+
+        firstRow.add(modePanel);
+        firstRow.add(namePanel);
+        firstRow.add(addCompetitorButton);
+
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.gridwidth = 6;
+        gc.weightx = 1;
+        controls.add(firstRow, gc);
+
+        // Second row panel (discipline + result + buttons)
+        JPanel secondRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+
+        disciplineBox = new JComboBox<>(DECA_DISCIPLINES);
+        JPanel discPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        discPanel.add(new JLabel("Discipline:"));
+        discPanel.add(disciplineBox);
+
+        resultField = new JTextField(8);
+        JPanel resPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        resPanel.add(new JLabel("Result:"));
+        resPanel.add(resultField);
+
+        calculateButton = new JButton("Calculate Score");
         calculateButton.addActionListener(new CalculateButtonListener());
-        panel.add(calculateButton);
 
-        JButton exportButton = new JButton("Export to Excel");
-        exportButton.addActionListener(new ExportButtonListener());  // New export button listener
-        panel.add(exportButton);  // Add export button to the panel
+        exportButton = new JButton("Export to Excel");
+        exportButton.addActionListener(new ExportButtonListener());
 
-        // Output area
-        outputArea = new JTextArea(5, 40);
+        secondRow.add(discPanel);
+        secondRow.add(resPanel);
+        secondRow.add(calculateButton);
+        secondRow.add(exportButton);
+
+        gc.gridx = 0;
+        gc.gridy = 1;
+        gc.gridwidth = 6;
+        gc.weightx = 1;
+        controls.add(secondRow, gc);
+
+        frame.add(controls, BorderLayout.NORTH);
+
+        // ==== CENTER: Output & Snapshot ======================================================
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        split.setResizeWeight(0.4);
+
+        // Output area (log)
+        outputArea = new JTextArea(8, 40);
         outputArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(outputArea);
-        panel.add(scrollPane);
+        JScrollPane logScroll = new JScrollPane(outputArea);
 
-        frame.add(panel);
+        // Snapshot table at bottom
+        tableModel = new DefaultTableModel();
+        snapshotTable = new JTable(tableModel);
+        snapshotTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        rebuildSnapshotTableColumns();
+        refreshSnapshotTableData();
+        JScrollPane tableScroll = new JScrollPane(snapshotTable);
+
+        split.setTopComponent(logScroll);
+        split.setBottomComponent(tableScroll);
+
+        frame.add(split, BorderLayout.CENTER);
+
         frame.setVisible(true);
+    }
+
+    private void addCompetitor() {
+        String name = nameField.getText().trim();
+        if (name.isEmpty()) {
+            showMessageDialog(null, "Enter a name first.", "Missing name", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (competitors.containsKey(name)) {
+            showMessageDialog(null, "Competitor already exists.", "Duplicate", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        Competitor c = new Competitor(name);
+        competitors.put(name, c);
+        outputArea.append("Added competitor: " + name + "\n\n");
+        refreshSnapshotTableData();
+    }
+
+    private void refreshDisciplineBox() {
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>(activeDisciplines);
+        disciplineBox.setModel(model);
+        if (model.getSize() > 0) model.setSelectedItem(model.getElementAt(0));
+    }
+
+    private void rebuildSnapshotTableColumns() {
+        // Columns: Name + active disciplines + Total
+        Vector<String> cols = new Vector<>();
+        cols.add("Name");
+        Collections.addAll(cols, activeDisciplines);
+        cols.add("Total");
+        tableModel.setDataVector(new Vector<>(), cols);
+    }
+
+    private void refreshSnapshotTableData() {
+        tableModel.setRowCount(0);
+        for (Competitor c : competitors.values()) {
+            tableModel.addRow(buildRowFor(c));
+        }
+        resizeColumnsToFit();
+    }
+
+    private Vector<Object> buildRowFor(Competitor c) {
+        Vector<Object> row = new Vector<>();
+        row.add(c.getName());
+        int total = 0;
+        for (String d : activeDisciplines) {
+            Integer v = clientScores.getOrDefault(c.getName(), Collections.emptyMap()).get(d);
+            row.add(v == null ? "" : v);
+            if (v != null) total += v;
+        }
+        row.add(total);
+        return row;
+    }
+
+    // client-side mirror of scores
+    private final Map<String, Map<String, Integer>> clientScores = new LinkedHashMap<>();
+
+    private void putClientScore(String name, String discipline, int score) {
+        clientScores.computeIfAbsent(name, k -> new LinkedHashMap<>()).put(discipline, score);
+    }
+
+    private int computeClientTotal(String name) {
+        Map<String, Integer> m = clientScores.get(name);
+        if (m == null) return 0;
+        int sum = 0;
+        for (Integer v : m.values()) if (v != null) sum += v;
+        return sum;
     }
 
     private class CalculateButtonListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
-            String name = nameField.getText();
-            String discipline = (String) disciplineBox.getSelectedItem();
-            String resultText = resultField.getText();
-            competitor = new Competitor(name);
-            if (competitor == null) {
-                competitor = new Competitor(name);  // Create a new competitor
+            String name = nameField.getText().trim();
+            if (name.isEmpty()) {
+                JOptionPane.showMessageDialog(null, "Please enter a competitor name first.", "Missing name", JOptionPane.WARNING_MESSAGE);
+                return;
             }
+            Competitor competitor = competitors.computeIfAbsent(name, Competitor::new);
+
+            String discipline = (String) disciplineBox.getSelectedItem();
+            String resultText = resultField.getText().trim();
 
             try {
                 double result = Double.parseDouble(resultText);
 
-                int score = 0;
-                switch (discipline) {
-                    case "100m":
-                        Deca100M deca100M = new Deca100M();
-                        score = deca100M.calculateResult(result);
-                        break;
-                    case "400m":
-                        Deca400M deca400M = new Deca400M();
-                        score = deca400M.calculateResult(result);
-                        break;
-                    case "1500m":
-                        Deca1500M deca1500M = new Deca1500M();
-                        score = deca1500M.calculateResult(result);
-                        break;
-                    case "110m Hurdles":
-                        Deca110MHurdles deca110MHurdles = new Deca110MHurdles();
-                        score = deca110MHurdles.calculateResult(result);
-                        break;
-                    case "Long Jump":
-                        DecaLongJump decaLongJump = new DecaLongJump();
-                        score = decaLongJump.calculateResult(result);
-                        break;
-                    case "High Jump":
-                        DecaHighJump decaHighJump = new DecaHighJump();
-                        score = decaHighJump.calculateResult(result);
-                        break;
-                    case "Pole Vault":
-                        DecaPoleVault decaPoleVault = new DecaPoleVault();
-                        score = decaPoleVault.calculateResult(result);
-                        break;
-                    case "Discus Throw":
-                        DecaDiscusThrow decaDiscusThrow = new DecaDiscusThrow();
-                        score = decaDiscusThrow.calculateResult(result);
-                        break;
-                    case "Javelin Throw":
-                        DecaJavelinThrow decaJavelinThrow = new DecaJavelinThrow();
-                        score = decaJavelinThrow.calculateResult(result);
-                        break;
-                    case "Shot Put":
-                        DecaShotPut decaShotPut = new DecaShotPut();
-                        score = decaShotPut.calculateResult(result);
-                        break;
-                }
+                int score = calculateScoreForDiscipline(discipline, result);
 
-                // Update the competitor's score for the selected discipline
                 competitor.setScore(discipline, score);
+                putClientScore(name, discipline, score);
 
-                if (score >= 0) { // score will be -1 if result was too low or too high
-                    outputArea.append("Competitor: " + name + "\n");
-                    outputArea.append("Discipline: " + discipline + "\n");
-                    outputArea.append("Result: " + result + "\n");
-                    outputArea.append("Score: " + score + "\n\n");
-                    nameField.setText("");
-                    resultField.setText("");
-                    disciplineBox.setSelectedIndex(0);
-                } else {
-                    resultField.setText("");
-                }
+                // Log details including total automatically
+                int total = computeClientTotal(name);
+                outputArea.append("Competitor: " + name + "\n");
+                outputArea.append("Discipline: " + discipline + "\n");
+                outputArea.append("Result: " + result + "\n");
+                outputArea.append("Score: " + score + "\n");
+                outputArea.append("Total so far: " + total + "\n\n");
+
+                resultField.setText("");
+                disciplineBox.setSelectedIndex(0);
+
+                upsertRow(name);
 
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(null, "Please enter a valid number for the result.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(null, ex.getMessage(), "Invalid Discipline", JOptionPane.ERROR_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(null, "Error while calculating score: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
+    }
+
+    private void upsertRow(String name) {
+        int nameCol = 0;
+        for (int r = 0; r < tableModel.getRowCount(); r++) {
+            Object v = tableModel.getValueAt(r, nameCol);
+            if (name.equals(v)) {
+                int total = 0;
+                for (int i = 0; i < activeDisciplines.length; i++) {
+                    String d = activeDisciplines[i];
+                    Integer sc = clientScores.getOrDefault(name, Collections.emptyMap()).get(d);
+                    tableModel.setValueAt(sc == null ? "" : sc, r, 1 + i);
+                    if (sc != null) total += sc;
+                }
+                tableModel.setValueAt(total, r, 1 + activeDisciplines.length);
+                return;
+            }
+        }
+        tableModel.addRow(buildRowFor(competitors.get(name)));
+    }
+
+    private int calculateScoreForDiscipline(String discipline, double result) {
+        switch (discipline) {
+            // ===== Decathlon =====
+            case "100m":
+                return new Deca100M().calculateResult(result);
+            case "400m":
+                return new Deca400M().calculateResult(result);
+            case "1500m":
+                return new Deca1500M().calculateResult(result);
+            case "110m Hurdles":
+                return new Deca110MHurdles().calculateResult(result);
+            case "Long Jump":
+                return new DecaLongJump().calculateResult(result);
+            case "High Jump":
+                return new DecaHighJump().calculateResult(result);
+            case "Pole Vault":
+                return new DecaPoleVault().calculateResult(result);
+            case "Discus Throw":
+                return new DecaDiscusThrow().calculateResult(result);
+            case "Javelin Throw":
+                return new DecaJavelinThrow().calculateResult(result);
+            case "Shot Put":
+                return new DecaShotPut().calculateResult(result);
+
+            // ===== Heptathlon (assuming Hepta classes exist) =====
+            // ===== Heptathlon (you need corresponding classes in your codebase) =====
+            case "100m Hurdles":
+                return new Hep100MHurdles().calculateResult(result);
+            case "200m":
+                return new Hep200M().calculateResult(result);
+            case "800m":
+                return new Hep800M().calculateResult(result);
+            // Reuse field event classes if same formulas (else create Hepta* variants)
+            case "Hep Long Jump":
+                return new HeptLongJump().calculateResult(result);
+            case "Hep High Jump":
+                return new HeptHightJump().calculateResult(result);
+            case "Hep Javelin Throw":
+                return new HeptJavelinThrow().calculateResult(result);
+            case "Hep Shot Put":
+                return new HeptShotPut().calculateResult(result);
+        }
+
+        throw new
+
+                IllegalArgumentException("Unknown discipline: " + discipline);
     }
 
     private class ExportButtonListener implements ActionListener {
@@ -161,31 +351,58 @@ public class MainGUI {
         public void actionPerformed(ActionEvent e) {
             try {
                 exportToExcel();
-                showMessageDialog(null, "Results exported successfully!", "Export Successful", JOptionPane.INFORMATION_MESSAGE);
             } catch (IOException ex) {
                 showMessageDialog(null, "Failed to export results to Excel.", "Export Error", JOptionPane.ERROR_MESSAGE);
             }
         }
+
     }
 
     private void exportToExcel() throws IOException {
-        String[][] data = new String[1][];
-        int i = 0;
+        if (tableModel.getRowCount() == 0) {
+            showMessageDialog(null, "Failed to export results to Excel. Nothing added yet", "Export Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        Object[] rowData = competitor.getRowData(); // Get the competitor's row data
 
-        // Ensure the array size matches the number of columns in rowData
-        data[i] = new String[rowData.length];
+// Build export from what you SEE in the snapshot table (robust against internal storage)
+        int rows = tableModel.getRowCount();
+        int cols = tableModel.getColumnCount();
 
-        // Safely copy rowData to data array
-        for (int j = 0; j < rowData.length; j++) {
-            data[i][j] = (rowData[j] != null) ? rowData[j].toString() : "";  // Handle null values
+
+// +1 row for headers
+        Object[][] data = new Object[rows + 1][cols];
+
+
+// Headers
+        for (int c = 0; c < cols; c++) {
+            data[0][c] = tableModel.getColumnName(c);
+        }
+
+
+// Body
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                Object val = tableModel.getValueAt(r, c);
+                data[r + 1][c] = (val == null) ? "" : val; // keep numbers as Integer/Double if present
+            }
         }
 
 
         ExcelPrinter printer = new ExcelPrinter("TrackAndFieldResults");
         printer.add(data, "Results");
         printer.write();
+        showMessageDialog(null, "Results exported successfully!", "Export Successful", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    private void resizeColumnsToFit() {
+        for (int c = 0; c < snapshotTable.getColumnCount(); c++) {
+            int width = 75; // min
+            for (int r = 0; r < snapshotTable.getRowCount(); r++) {
+                Component comp = snapshotTable.prepareRenderer(snapshotTable.getCellRenderer(r, c), r, c);
+                width = Math.max(comp.getPreferredSize().width + 16, width);
+            }
+            snapshotTable.getColumnModel().getColumn(c).setPreferredWidth(width);
+        }
+    }
 }

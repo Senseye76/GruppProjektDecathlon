@@ -2,6 +2,8 @@ package com.example.decathlon.excel;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -49,7 +51,9 @@ public class ExcelPrinter {
 	}
 
 	public void write() throws IOException {
-		FileOutputStream out = new FileOutputStream("C:/Eclipse/resultat_" + excelName + ".xlsx");
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_hh-mm-ss");
+		String timeStamp = formatter.format(LocalDateTime.now());
+		FileOutputStream out = new FileOutputStream("C:/Eclipse/resultat_" + excelName + timeStamp +".xlsx");
 		workbook.write(out);
 		workbook.close();
 	}
