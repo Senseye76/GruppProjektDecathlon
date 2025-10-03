@@ -258,16 +258,19 @@ public class MainGUI {
 
                 // Log details including total automatically
                 int total = computeClientTotal(name);
-                outputArea.append("Competitor: " + name + "\n");
-                outputArea.append("Discipline: " + discipline + "\n");
-                outputArea.append("Result: " + result + "\n");
-                outputArea.append("Score: " + score + "\n");
-                outputArea.append("Total so far: " + total + "\n\n");
-
+                if (score>=0) {
+                    outputArea.append("Competitor: " + name + "\n");
+                    outputArea.append("Discipline: " + discipline + "\n");
+                    outputArea.append("Result: " + result + "\n");
+                    outputArea.append("Score: " + score + "\n");
+                    outputArea.append("Total so far: " + total + "\n\n");
+                }
                 resultField.setText("");
                 disciplineBox.setSelectedIndex(0);
 
-                upsertRow(name);
+                if (score>=0) {
+                    upsertRow(name);
+                }
 
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(null, "Please enter a valid number for the result.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
@@ -288,10 +291,15 @@ public class MainGUI {
                 for (int i = 0; i < activeDisciplines.length; i++) {
                     String d = activeDisciplines[i];
                     Integer sc = clientScores.getOrDefault(name, Collections.emptyMap()).get(d);
+
+
                     tableModel.setValueAt(sc == null ? "" : sc, r, 1 + i);
+
                     if (sc != null) total += sc;
                 }
+
                 tableModel.setValueAt(total, r, 1 + activeDisciplines.length);
+
                 return;
             }
         }
