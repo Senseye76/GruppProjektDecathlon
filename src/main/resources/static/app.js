@@ -2,25 +2,50 @@ const el = (id) => document.getElementById(id);
 const err = el('error');
 const msg = el('msg');
 
+const LIMITS = {
+  '100m': [5, 20],
+  '110mHurdles': [10, 30],
+  '400m': [20, 100],
+  '1500m': [150, 400],
+  'discusThrow': [0, 85],
+  'highJump': [0, 300],
+  'javelinThrow': [0, 110],
+  'longJump': [0, 1000],
+  'poleVault': [0, 1000],
+  'shotPut': [0, 30]
+};
 
-const COLUMNS = [
-  { key: '100m',         header: '100m' },
-  { key: 'longJump',     header: 'Long Jump' },
-  { key: 'shotPut',      header: 'Shot Put' },
-  { key: '400m',         header: '400m' },
-  { key: '1500m',        header: '1500m' },
-  { key: '110mHurdles',  header: '110m Hurdles' },
-  { key: 'highJump',     header: 'High jump' },
-  { key: 'poleVault',    header: 'Pole vault' },
-  { key: 'discusThrow',  header: 'Discus throw' },
-  { key: 'javelinThrow', header: 'Javelin Throw' }
-];
+function applyLimits() {
+  const ev = el('event').value;
+  const [lo, hi] = LIMITS[ev] || [0, 999999];
+  const r = el('raw');
+  r.min = String(lo);
+  r.max = String(hi);
+  r.placeholder = `${lo}–${hi}`;
+}
 
 function setError(text) { err.textContent = text; }
-function setMsg(text) { msg.textContent = text; /* err.textContent not always cleared */ }
+function setMsg(text) { msg.textContent = text; }
+
+el('event').addEventListener('change', () => {
+  applyLimits();
+  setError('');
+});
+
+el('raw').addEventListener('keydown', (e) => {
+  if (['e','E','+','-'].includes(e.key)) e.preventDefault();
+});
+
+el('raw').addEventListener('input', () => {
+  const v = el('raw').value;
+  if (v === '') return;
+  if (!/^\d*([.]\d*)?$/.test(v)) {
+    el('raw').value = v.replace(/[^0-9.]/g, '');
+  }
+});
 
 el('add').addEventListener('click', async () => {
-  const name = el('name').value; // NOTE: no trim here (intentional)
+  const name = el('name').value;
   try {
     const res = await fetch('/com/example/decathlon/api/competitors', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -31,7 +56,6 @@ el('add').addEventListener('click', async () => {
       setError(t || 'Failed to add competitor');
     } else {
       setMsg('Added');
-      // sometimes forget to clear error -> students can assert stale error
     }
     await renderStandings();
   } catch (e) {
@@ -40,10 +64,18 @@ el('add').addEventListener('click', async () => {
 });
 
 el('save').addEventListener('click', async () => {
+  const ev = el('event').value;
+  const rawStr = el('raw').value.trim();
+  if (rawStr === '') { setError('Enter result'); return; }
+  const rawNum = Number(rawStr);
+  if (!Number.isFinite(rawNum)) { setError('Wrong number'); return; }
+  const [lo, hi] = LIMITS[ev] || [0, 999999];
+  if (rawNum < lo || rawNum > hi) { setError('Number outside range'); return; }
+  setError('');
   const body = {
     name: el('name2').value,
-    event: el('event').value,
-    raw: parseFloat(el('raw').value)
+    event: ev,
+    raw: rawNum
   };
   try {
     const res = await fetch('/com/example/decathlon/api/score', {
@@ -58,7 +90,7 @@ el('save').addEventListener('click', async () => {
   }
 });
 
-let sortBroken = false; // becomes true after export -> sorting bug
+let sortBroken = false;
 
 el('export').addEventListener('click', async () => {
   try {
@@ -69,7 +101,7 @@ el('export').addEventListener('click', async () => {
     a.href = URL.createObjectURL(blob);
     a.download = 'results.csv';
     a.click();
-    sortBroken = true; // trigger sorting issue after export
+    sortBroken = true;
   } catch (e) {
     setError('Export failed');
   }
@@ -82,43 +114,31 @@ function escapeHtml(s){
 async function fetchJsonStrict(url){
   const res = await fetch(url);
   const contentType = res.headers.get('content-type') || '';
-  const body = await res.text(); // läs en gång
-
-  // Försök tolka JSON om möjligt
+  const body = await res.text();
   let data = null;
   if (contentType.includes('application/json')) {
-    try { data = JSON.parse(body); } catch (e) { /* fall through */ }
+    try { data = JSON.parse(body); } catch (e) {}
   }
-
   if (!res.ok) {
-    // Visa serverns feltext om det finns
     const msg = (body && body.trim()) ? body.trim() : `${res.status} ${res.statusText}`;
     throw new Error(msg);
   }
-
   if (!data) {
     throw new Error(`Expected JSON but got: ${body.slice(0,200)}`);
   }
-
   return data;
 }
 
 async function renderStandings() {
   try {
-    setMsg(''); // rensa ev. gammalt success
-    // Hämta data robust
+    setMsg('');
     const data = await fetchJsonStrict('/com/example/decathlon/api/standings');
-
     if (!Array.isArray(data)) {
-      console.error('Standings payload is not an array:', data);
       setError('Standings format error (not an array).');
       el('standings').innerHTML = '';
       return;
     }
-
-    // Sortera (ignorera sortBroken här om du vill garantera korrekt sort)
     const sorted = data.slice().sort((a,b)=> (b.total||0)-(a.total||0));
-
     const rowsHtml = sorted.map(r => `
       <tr>
         <td>${escapeHtml(r.name ?? '')}</td>
@@ -135,21 +155,15 @@ async function renderStandings() {
         <td>${r.total ?? 0}</td>
       </tr>
     `).join('');
-
     el('standings').innerHTML = rowsHtml || `
       <tr><td colspan="12" style="opacity:.7">No data yet</td></tr>
     `;
-
-    // Visa liten positiv feedback + logga
     setMsg(`Standings updated (${sorted.length} rows)`);
-    console.debug('Standings OK:', sorted);
   } catch (e) {
-    console.error('renderStandings failed:', e);
     setError(`Could not load standings: ${e.message}`);
     el('standings').innerHTML = '';
   }
 }
 
-
-
+applyLimits();
 renderStandings();
