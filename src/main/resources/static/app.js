@@ -2,25 +2,118 @@ const el = (id) => document.getElementById(id);
 const err = el('error');
 const msg = el('msg');
 
+const MODE = { DEC: 'DEC', HEP: 'HEP' };
 
-const COLUMNS = [
-  { key: '100m',         header: '100m' },
-  { key: 'longJump',     header: 'Long Jump' },
-  { key: 'shotPut',      header: 'Shot Put' },
-  { key: '400m',         header: '400m' },
-  { key: '1500m',        header: '1500m' },
-  { key: '110mHurdles',  header: '110m Hurdles' },
-  { key: 'highJump',     header: 'High jump' },
-  { key: 'poleVault',    header: 'Pole vault' },
-  { key: 'discusThrow',  header: 'Discus throw' },
-  { key: 'javelinThrow', header: 'Javelin Throw' }
+const DEC_EVENTS = [
+  { id: '100m', label: '100m (s)' },
+  { id: 'longJump', label: 'Long Jump (cm)' },
+  { id: 'shotPut', label: 'Shot Put (m)' },
+  { id: 'highJump', label: 'High Jump (cm)' },
+  { id: '400m', label: '400m (s)' },
+  { id: '110mHurdles', label: '110m Hurdles (s)' },
+  { id: 'discusThrow', label: 'Discus Throw (m)' },
+  { id: 'poleVault', label: 'Pole Vault (cm)' },
+  { id: 'javelinThrow', label: 'Javelin Throw (m)' },
+  { id: '1500m', label: '1500m (s)' }
 ];
 
+const HEP_EVENTS = [
+  { id: 'hep100mHurdles', label: '100m Hurdles (s)' },
+  { id: 'hepHighJump', label: 'High Jump (cm)' },
+  { id: 'hepShotPut', label: 'Shot Put (m)' },
+  { id: '200m', label: '200m (s)' },
+  { id: 'hepLongJump', label: 'Long Jump (cm)' },
+  { id: 'hepJavelinThrow', label: 'Javelin Throw (m)' },
+  { id: '800m', label: '800m (s)' }
+];
+
+function currentEvents() {
+  return el('mode').value === MODE.DEC ? DEC_EVENTS : HEP_EVENTS;
+}
+
 function setError(text) { err.textContent = text; }
-function setMsg(text) { msg.textContent = text; /* err.textContent not always cleared */ }
+function setMsg(text) { msg.textContent = text; }
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+async function fetchJsonStrict(url){
+  const res = await fetch(url);
+  const contentType = res.headers.get('content-type') || '';
+  const body = await res.text();
+  let data = null;
+  if (contentType.includes('application/json')) {
+    try { data = JSON.parse(body); } catch (e) {}
+  }
+  if (!res.ok) {
+    const m = (body && body.trim()) ? body.trim() : `${res.status} ${res.statusText}`;
+    throw new Error(m);
+  }
+  if (!data) {
+    throw new Error(`Expected JSON but got: ${body.slice(0,200)}`);
+  }
+  return data;
+}
+
+function populateEventSelect() {
+  const sel = el('event');
+  sel.innerHTML = '';
+  for (const ev of currentEvents()) {
+    const o = document.createElement('option');
+    o.value = ev.id;
+    o.textContent = ev.label;
+    sel.appendChild(o);
+  }
+}
+
+function renderHeader() {
+  const head = el('headRow');
+  const cols = ['Name', ...currentEvents().map(e => e.label), 'Total'];
+  head.innerHTML = cols.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+}
+
+async function renderStandings() {
+  try {
+    setMsg('');
+    const data = await fetchJsonStrict('/com/example/decathlon/api/standings');
+    if (!Array.isArray(data)) {
+      setError('Standings format error (not an array).');
+      el('standings').innerHTML = '';
+      return;
+    }
+
+    const cols = currentEvents().map(e => e.id);
+
+    const rows = data.map(r => {
+      const scores = r.scores || {};
+      const perCols = cols.map(k => Number(scores[k] ?? 0));
+      const total = perCols.reduce((a,b)=>a+b,0);
+      return {
+        name: r.name || '',
+        cells: cols.map(k => scores[k] ?? ''),
+        total
+      };
+    }).sort((a,b)=> b.total - a.total);
+
+    const html = rows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        ${r.cells.map(c => `<td>${c}</td>`).join('')}
+        <td>${r.total}</td>
+      </tr>
+    `).join('');
+
+    el('standings').innerHTML = html || `<tr><td colspan="${currentEvents().length+2}" style="opacity:.7">No data yet</td></tr>`;
+    setMsg(`Standings updated (${rows.length} rows)`);
+  } catch (e) {
+    setError(`Could not load standings: ${e.message}`);
+    el('standings').innerHTML = '';
+  }
+}
 
 el('add').addEventListener('click', async () => {
-  const name = el('name').value; // NOTE: no trim here (intentional)
+  const name = el('name').value;
   try {
     const res = await fetch('/com/example/decathlon/api/competitors', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -31,7 +124,6 @@ el('add').addEventListener('click', async () => {
       setError(t || 'Failed to add competitor');
     } else {
       setMsg('Added');
-      // sometimes forget to clear error -> students can assert stale error
     }
     await renderStandings();
   } catch (e) {
@@ -58,7 +150,7 @@ el('save').addEventListener('click', async () => {
   }
 });
 
-let sortBroken = false; // becomes true after export -> sorting bug
+let sortBroken = false;
 
 el('export').addEventListener('click', async () => {
   try {
@@ -69,87 +161,18 @@ el('export').addEventListener('click', async () => {
     a.href = URL.createObjectURL(blob);
     a.download = 'results.csv';
     a.click();
-    sortBroken = true; // trigger sorting issue after export
+    sortBroken = true;
   } catch (e) {
     setError('Export failed');
   }
 });
 
-function escapeHtml(s){
-  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-}
+el('mode').addEventListener('change', () => {
+  populateEventSelect();
+  renderHeader();
+  renderStandings();
+});
 
-async function fetchJsonStrict(url){
-  const res = await fetch(url);
-  const contentType = res.headers.get('content-type') || '';
-  const body = await res.text(); // läs en gång
-
-  // Försök tolka JSON om möjligt
-  let data = null;
-  if (contentType.includes('application/json')) {
-    try { data = JSON.parse(body); } catch (e) { /* fall through */ }
-  }
-
-  if (!res.ok) {
-    // Visa serverns feltext om det finns
-    const msg = (body && body.trim()) ? body.trim() : `${res.status} ${res.statusText}`;
-    throw new Error(msg);
-  }
-
-  if (!data) {
-    throw new Error(`Expected JSON but got: ${body.slice(0,200)}`);
-  }
-
-  return data;
-}
-
-async function renderStandings() {
-  try {
-    setMsg(''); // rensa ev. gammalt success
-    // Hämta data robust
-    const data = await fetchJsonStrict('/com/example/decathlon/api/standings');
-
-    if (!Array.isArray(data)) {
-      console.error('Standings payload is not an array:', data);
-      setError('Standings format error (not an array).');
-      el('standings').innerHTML = '';
-      return;
-    }
-
-    // Sortera (ignorera sortBroken här om du vill garantera korrekt sort)
-    const sorted = data.slice().sort((a,b)=> (b.total||0)-(a.total||0));
-
-    const rowsHtml = sorted.map(r => `
-      <tr>
-        <td>${escapeHtml(r.name ?? '')}</td>
-        <td>${r.scores?.["100m"] ?? ''}</td>
-        <td>${r.scores?.["longJump"] ?? ''}</td>
-        <td>${r.scores?.["shotPut"] ?? ''}</td>
-        <td>${r.scores?.["highJump"] ?? ''}</td>
-        <td>${r.scores?.["400m"] ?? ''}</td>
-        <td>${r.scores?.["110mHurdles"] ?? ''}</td>
-        <td>${r.scores?.["discusThrow"] ?? ''}</td>
-        <td>${r.scores?.["poleVault"] ?? ''}</td>
-        <td>${r.scores?.["javelinThrow"] ?? ''}</td>
-        <td>${r.scores?.["1500m"] ?? ''}</td>
-        <td>${r.total ?? 0}</td>
-      </tr>
-    `).join('');
-
-    el('standings').innerHTML = rowsHtml || `
-      <tr><td colspan="12" style="opacity:.7">No data yet</td></tr>
-    `;
-
-    // Visa liten positiv feedback + logga
-    setMsg(`Standings updated (${sorted.length} rows)`);
-    console.debug('Standings OK:', sorted);
-  } catch (e) {
-    console.error('renderStandings failed:', e);
-    setError(`Could not load standings: ${e.message}`);
-    el('standings').innerHTML = '';
-  }
-}
-
-
-
+populateEventSelect();
+renderHeader();
 renderStandings();
